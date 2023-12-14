@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Automatization" xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
-        Title="ЗСМ Auto" Height="600" Width="810" MinWidth="810" MinHeight="600" WindowStartupLocation="CenterScreen" Background="#dfe3ea">
+        Title="ЗСМ Auto" Height="600" Width="810" MinWidth="810" MinHeight="600" WindowStartupLocation="CenterScreen" Background="#dfe3ea" Closed="Window_Closed">
     <Window.Resources>
         <Style x:Key="StandartLabel">
             <Setter Property="ItemsControl.FontSize" Value="16"/>

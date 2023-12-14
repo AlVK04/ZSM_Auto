@@ -17,6 +17,8 @@ using System.Windows.Shapes;
 using Microsoft.Win32;
 using Aspose.Cells;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Threading;
+using System.Reflection;
 
 namespace Automatization
 {
@@ -38,6 +40,10 @@ namespace Automatization
 
         List<string> shopNames = new List<string>();
 
+        private LogWindow logWindow;
+        private Thread newWindowThread;
+
+
         public MainWindow()
         {
             InitializeComponent();
@@ -46,6 +52,8 @@ namespace Automatization
         // Кнопка Найти магазин и заполнить
         private void ButtonSearchAndFill_Click(object sender, RoutedEventArgs e)
         {
+            //Создание нового потока с запуском окна
+            NewThreadForWindowLog();
             // Создаем новый экземпляр сервиса Chrome
             var service = ChromeDriverService.CreateDefaultService(@"chromedriver.exe");
             service.HideCommandPromptWindow = true; // Скрываем консоль ChromeDriver
@@ -65,6 +73,68 @@ namespace Automatization
 
             OpenShopEdit(false);
             web.Quit();
+            CloseLogWindow();
+        }
+
+
+        //метод, создающий поток для второго окна
+
+        private void NewThreadForWindowLog()
+        {
+            try {
+                newWindowThread = new Thread(new ThreadStart(() =>
+                {
+                    // Создание нового окна и запуск цикла обработки сообщений
+                    logWindow = new LogWindow();
+                    logWindow.Show();
+                    System.Windows.Threading.Dispatcher.Run();
+
+
+
+                }));
+
+                newWindowThread.SetApartmentState(ApartmentState.STA);
+                newWindowThread.Start();
+            }
+            catch (ThreadInterruptedException e)
+            {
+                
+            }
+
+        }
+
+        private void TransmitText(string text, int index) 
+       //0 - обновление магазина, 1 - заполнение магазина 2 - Конец заполнения сети 
+        {
+            switch (index)
+            {
+                case 0:
+                    text += " обновлён";
+                    logWindow.Dispatcher.Invoke(() =>
+                    {
+                        logWindow.ReceiveData(text, index);
+                    });
+                    break;
+                case 1:
+                    text += " заполнен";
+                    logWindow.Dispatcher.Invoke(() =>
+                    {
+                        logWindow.ReceiveData(text, index);
+                    });
+                    break;
+                case 2:
+                    text = "Сеть заполненна";
+                    logWindow.Dispatcher.Invoke(() =>
+                    {
+                        logWindow.ReceiveData(text, index);
+                    });
+                    break;
+               
+                default:
+                    text = "Неизвестная ошибка!";
+                    logWindow.Dispatcher.Invoke(() => { logWindow.ReceiveData(text, -1); });
+                    break;
+            }
         }
 
         // Закрыть браузер
@@ -73,6 +143,7 @@ namespace Automatization
             try
             {
                 web.Quit();
+                CloseLogWindow();
                 Log.Text += "Браузер закрыт\n";
             }
             catch
@@ -115,6 +186,8 @@ namespace Automatization
 
                                 ShopEdit(true);
                                 Log.Text += FillShopNames.Last() + " Обновлен\n";
+                                TransmitText(FillShopNames.Last(), 0);
+
                                 filledShops++;
                             }
                         }
@@ -143,6 +216,7 @@ namespace Automatization
 
                                     ShopEdit(false);
                                     Log.Text += FillShopNames.Last() + " ЗАПОЛНЕН\n";
+                                    TransmitText(FillShopNames.Last(), 1);
                                     filledShops++;
                                 }
                             }
@@ -154,7 +228,7 @@ namespace Automatization
 
                                     ShopEdit(false);
                                     Log.Text += Name.Text.ToString().Trim() + " ОБНОВЛЕН\n";
-
+                                    TransmitText(Name.Text.ToString().Trim(), 0);
                                     break;
                                 }
                             }
@@ -170,9 +244,11 @@ namespace Automatization
             catch
             {
                 web.Quit();
+                CloseLogWindow();
                 if (filledShops > 0)
                 {
                     Log.Text += "Сеть заполнена\n";
+                    TransmitText("", 2);
                 }
                 else
                 {
@@ -439,6 +515,27 @@ namespace Automatization
 
             OpenShopEdit(true);
             web.Quit();
+            CloseLogWindow();
+        }
+
+        private void CloseLogWindow()
+        {
+            if (logWindow != null)
+            {
+            logWindow.Dispatcher.Invoke(() =>
+            {
+                logWindow.ProcessLog.Clear();
+                logWindow.Close();
+
+            });
+            }
+            newWindowThread.Interrupt();
+        }
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            CloseLogWindow();
+            Application.Current.Shutdown();
         }
     }
 }
